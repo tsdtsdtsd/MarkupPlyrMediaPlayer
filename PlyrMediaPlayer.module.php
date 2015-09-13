@@ -155,7 +155,18 @@ class PlyrMediaPlayer extends WireData implements Module
      */
     public function renderHtmlHead()
     {
-        return '<link rel="stylesheet" href="https://cdn.plyr.io/1.3.5/plyr.css">';
+        $config = wire('modules')->getModuleConfigData($this);
+
+        if($config['useCdn']) {
+            $cssPath = 'https://cdn.plyr.io/1.3.5/plyr.css';
+        }
+        elseif($config['cssPath']) {
+            $cssPath = $config['cssPath'];
+        }
+
+        if(!empty($cssPath)) {
+            return '<link rel="stylesheet" href="' . $cssPath . '">';
+        }
     }
 
     /**
