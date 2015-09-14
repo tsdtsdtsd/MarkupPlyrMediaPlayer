@@ -11,7 +11,7 @@
  * https://github.com/tsdtsdtsd/PlyrMediaPlayer
  * https://plyr.io/
  */
-class PlyrMediaPlayer extends WireData implements Module 
+class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModule 
 {
 
     /**
@@ -31,7 +31,7 @@ class PlyrMediaPlayer extends WireData implements Module
         return array(
 
             'title' => 'Plyr Media Player', 
-            'version' => '0.1.0', 
+            'version' => '0.1.1', 
             'summary' => 'This module adds the Plyr HTML5 Media Player (https://plyr.io/) to ProcessWire',
             'href' => 'https://github.com/tsdtsdtsd/PlyrMediaPlayer',
             'singular' => true, 
