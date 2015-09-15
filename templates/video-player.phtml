@@ -1,0 +1,13 @@
+<div class="player">
+    <video poster="<?php echo $this->poster; ?>" controls crossorigin>
+        <!-- Video files -->
+        <source src="<?php echo $this->mp4; ?>" type="video/mp4">
+        <source src="<?php echo $this->webm; ?>" type="video/webm">
+
+        <!-- Text track file 
+        <track kind="captions" label="" src="" srclang="" default>-->
+
+        <!-- Fallback for browsers that don\'t support the <video> element -->
+        <a href="<?php echo $this->mp4; ?>">Download</a>
+    </video>
+</div>

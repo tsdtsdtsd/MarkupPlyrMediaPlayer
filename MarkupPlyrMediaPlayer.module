@@ -33,6 +33,9 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         'svgPath' => 'sprite.svg',
     ); 
 
+    protected $_pathToTemplates = '/templates/';
+    protected $_templateVideo = 'video-player.phtml';
+
     /**
      * Returns module info array
      *
@@ -86,6 +89,29 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         $event->return = str_replace("</body>", $outputFooter . '</body>', $event->return); 
     }
 
+    public function renderPlayer($template, $data = array())
+    {
+        $fullPath = dirname(__FILE__) . $this->_pathToTemplates . $template;
+
+        if(!$template || !file_exists($fullPath)) {
+            throw new WireException(sprintf($this->_("View template file %s not found!"), $fullPath)); 
+        }
+        
+        $templateObject = new TemplateFile($fullPath);
+
+        if(!empty($data)) {
+            $templateObject->set('data', $data);
+        }
+        
+        $renderedTemplate = $templateObject->render();
+
+        if(!empty($renderedTemplate)) {
+            $this->_playerRequested = true;
+        }
+
+        return $renderedTemplate;
+    }
+
     /**
      * Returns rendered HTML of a video player
      *
@@ -95,21 +121,15 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
      */
     public function renderVideoPlayer($poster, $mp4, $webm, $captions = array())
     {
-        $this->_playerRequested = true;
-        
-        return '<div class="player">
-                    <video poster="' . $poster . '" controls crossorigin>
-                        <!-- Video files -->
-                        <source src="' . $mp4 . '" type="video/mp4">
-                        <source src="' . $webm . '" type="video/webm">
-
-                        <!-- Text track file 
-                        <track kind="captions" label="" src="" srclang="" default>-->
-
-                        <!-- Fallback for browsers that don\'t support the <video> element -->
-                        <a href="' . $mp4 . '">Download</a>
-                    </video>
-                </div>';
+        return $this->renderPlayer(
+            $this->_templateVideo, 
+            array(
+                'poster' => $poster,
+                'mp4'=> $mp4,
+                'webm' => $webm,
+                'captions' => $captions
+            )
+        );
     }
 
     /**
@@ -222,7 +242,9 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     
     /**
      * Provide fields for configuring this module
-     *
+     * 
+     * @param  array  $data 
+     * @return InputfieldWrapper
      */
     static public function getModuleConfigInputfields(array $data) {
 
