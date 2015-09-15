@@ -16,19 +16,18 @@ Also while in automatic mode, that extra markup will only be rendered, if a temp
 
 ### Add a video player to your template
 
-    echo $plyr->renderVideoPlayer($options);
+    echo $plyr->renderVideoPlayer($poster, $mp4, $webm, $captions);
 
-The ```$options```-Array contains details for the video:
+The ```$captions```-Array contains details of the caption tracks:
 
-    $options['poster']                  # 
-    $options['mp4']                     # 
-    $options['webm']                    # (optional)
-
-    $options['captions']                # 
-        $options['captions']['label']   # 
-        $options['captions']['src']     # 
-        $options['captions']['srclang'] # 
-        $options['captions']['default'] # 
+    $captions = $caption = array();
+    
+    $caption['label']   # Something like "English captions"
+    $caption['src']     # http://...movie_captions_en.vtt
+    $caption['srclang'] # en|de|ru|...
+    $caption['default'] # true|false
+    
+    array_push($captions, $caption);
 
 ### Add an audio player to your template
 
@@ -36,9 +35,9 @@ The ```$options```-Array contains details for the video:
 
 ### Add the YouTube-wrapper to your template
 
-    
     echo $plyr->renderYoutubePlayer($videoId); 
 
+## Manual mode
 
 If automatic mode is disabled, you have to render these parts manualy in your page template. This method will not check if a player was requested.
 

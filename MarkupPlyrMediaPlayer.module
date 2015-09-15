@@ -3,7 +3,7 @@
 /**
  * Plyr HTML5 Media Player module for ProcessWire
  *
- * ProcessWire 2.5+ 
+ * ProcessWire 2.5.5+ 
  * Copyright (C) 2015 by Orkan Alat 
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  * 
@@ -21,9 +21,22 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     protected $_playerRequested = false;
 
     /**
+     * The default values of module configuration
+     * @var array
+     */
+    protected static $defaultConfigData = array(
+        'automaticMode' => 1,
+        'useCdn' => 1,
+        // 'forceFallbackFiles' => 0,
+        'cssPath' => 'plyr.css',
+        'jsPath' => 'plyr.js',
+        'svgPath' => 'sprite.svg',
+    ); 
+
+    /**
      * Returns module info array
      *
-     * @todo  Check posibilities (e.g. requirement definitions)
+     * @todo  Check info posibilities (e.g. requirement definitions)
      * @return array
      */
     public static function getModuleInfo() 
@@ -31,7 +44,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         return array(
 
             'title' => 'Plyr Media Player', 
-            'version' => '0.1.1', 
+            'version' => '0.1.2', 
             'summary' => 'This module adds the Plyr HTML5 Media Player (https://plyr.io/) to ProcessWire',
             'href' => 'https://github.com/tsdtsdtsd/PlyrMediaPlayer',
             'singular' => true, 
@@ -40,9 +53,14 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         );
     }
 
-    public function init() 
-    {
-        $this->addHook('Page::plyr', $this, '_plyr'); 
+    /**
+     * Set the default config data
+     *
+     */
+    public function __construct() {
+        foreach(self::$defaultConfigData as $key => $value) {
+            $this->set($key, $value); 
+        }
     }
 
     public function ready() 
@@ -50,7 +68,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         if($this->page->template == 'admin') return;
 
         $config = wire('modules')->getModuleConfigData($this);
-        if(!$config['automaticMode']) return;
+        if(empty($config['automaticMode'])) return;
 
         $this->addHookAfter('Page::render', $this, '_addPlyrToOutput'); 
     }
@@ -68,33 +86,28 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         $event->return = str_replace("</body>", $outputFooter . '</body>', $event->return); 
     }
 
-    protected function _plyr($event) 
-    {
-        $event->return = $this;
-    }
-
     /**
      * Returns rendered HTML of a video player
      *
-     * @todo   Refactor to use ProcessWire template rendering
-     * @param  array  $options The player options
+     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
+     * @param  array  $captions The movie captions
      * @return string
      */
-    public function renderVideoPlayer($options = array())
+    public function renderVideoPlayer($poster, $mp4, $webm, $captions = array())
     {
         $this->_playerRequested = true;
         
         return '<div class="player">
-                    <video poster="' . $options['poster'] . '" controls crossorigin>
+                    <video poster="' . $poster . '" controls crossorigin>
                         <!-- Video files -->
-                        <source src="' . $options['mp4'] . '" type="video/mp4">
-                        <source src="' . $options['webm'] . '" type="video/webm">
+                        <source src="' . $mp4 . '" type="video/mp4">
+                        <source src="' . $webm . '" type="video/webm">
 
                         <!-- Text track file 
                         <track kind="captions" label="" src="" srclang="" default>-->
 
                         <!-- Fallback for browsers that don\'t support the <video> element -->
-                        <a href="' . $options['mp4'] . '">Download</a>
+                        <a href="' . $mp4 . '">Download</a>
                     </video>
                 </div>';
     }
@@ -102,7 +115,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     /**
      * Returns rendered HTML of an audio player
      *
-     * @todo   Refactor to use ProcessWire template rendering
+     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
      * @param  string  $mp3Path     Path to mp3 file
      * @param  string  $oggPath     Path to ogg file (optional)
      * @return string
@@ -132,7 +145,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     /**
      * Returns rendered HTML of a youtube player
      *
-     * @todo   Refactor to use ProcessWire template rendering
+     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
      * @param  string  $videoId     The YouTube video ID
      * @return string
      */
@@ -207,4 +220,83 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     {
     }
     
+    /**
+     * Provide fields for configuring this module
+     *
+     */
+    static public function getModuleConfigInputfields(array $data) {
+
+        foreach(self::$defaultConfigData as $key => $value) {
+            if(!isset($data[$key])) $data[$key] = $value; 
+        }
+
+        $inputfields = new InputfieldWrapper();
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'automaticMode');
+        $f->attr('checked', $data['automaticMode'] ? 'checked' : '' );
+        $f->label = "Automatic Mode";
+        $f->description = __("If enabled, this option will automaticaly add all needed resources into your pages output.");
+        $f->notes = __("The resources will only be loaded, if your page renders a player.");
+        $inputfields->add($f);
+
+        $fieldset = wire('modules')->get("InputfieldFieldset");
+        $fieldset->label = "Resources";
+        $fieldset->collapsed = Inputfield::collapsedNo;
+        $inputfields->add($fieldset);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'useCdn');
+        $f->label = "Use CDN";
+        $f->description = __("Use the official Plyr CDN (Content Delivery Network) for resources?");
+        $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
+        $f->attr('checked', $data['useCdn'] ? 'checked' : '' );
+        $f->columnWidth = 50;
+        $fieldset->add($f);
+
+        // $f = wire('modules')->get("InputfieldCheckbox");
+        // $f->attr('name', 'forceFallbackFiles');
+        // $f->label = "Fallback to local files";
+        // $f->description = __("Always use the local resource files as a fallback location of the CDN.");
+        // $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
+        // $f->attr('checked', $data['forceFallbackFiles'] ? 'checked' : '' );
+        // $f->columnWidth = 50;
+        // $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'cssPath');
+        $f->attr('value', $data['cssPath']);
+        $f->label = __('Path to CSS file');
+        $f->placeholder = 'plyr.css';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to your CSS file, required to style the players.";
+        $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'jsPath');
+        $f->attr('value', $data['jsPath']);
+        $f->label = __('Path to the Plyr javascript library.');
+        $f->placeholder = 'plyr.js';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to the Plyr javascript library, required for the functionality.";
+        $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'svgPath');
+        $f->attr('value', $data['svgPath']);
+        $f->label = __('Path to SVG file');
+        $f->placeholder = 'sprite.svg';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to your SVG sprite image file, required to style the players.";
+        $fieldset->add($f);
+
+        // $f = wire('modules')->get('InputfieldText');
+        // $f->attr('name', 'plyrOptions');
+        // $f->attr('value', $data['copyright']);
+        // $f->label = "Plyr Player Options";
+        // $f->description = "For now, JSON-formated string";
+        // $inputfields->add($f);
+
+        return $inputfields;
+    }
 }
