@@ -4,6 +4,10 @@
 
 This module adds the [Plyr HTML5 Media Player](https://plyr.io/) to ProcessWire.
 
+Plyr is basically a wrapper for the natural media interface in modern browsers. It adds the ability for easy styling via CSS and a sprite, while being fully responsive. Also Plyr gives you full controll over the player with its great javascript interface.
+ 
+MarkupPlyrMediaPlayer incorporates Plyr into the ProcessWire CMS. 
+
 ## Current capabilities
 
 After installation, you will notice some module configuration options. These are:
@@ -62,14 +66,14 @@ In the HTML head:
     <html>
         <head>
             ...
-            <?php echo $plyr->renderHtmlHead();  // Basicly just a <link rel="stylesheet" href="..."> ?>
+            <?php echo $plyr->renderHeadLink();  // Basicly just a <link rel="stylesheet" href="..."> ?>
         </head>
     ...
 
 And in the footer somewhere before the closing body-tag:
 
             ...
-            echo $plyr->renderHtmlFooter; // AJAX call for SVG and JS library inclusion
+            echo $plyr->renderScripts(); // AJAX call for SVG and JS library inclusion
         </body>
     </html>
 
