@@ -35,6 +35,8 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
 
     protected $_pathToTemplates = '/templates/';
     protected $_templateVideo = 'video-player.phtml';
+    protected $_templateAudio = 'audio-player.phtml';
+    protected $_templateYoutube = 'youtube-player.phtml';
 
     /**
      * Returns module info array
@@ -114,20 +116,27 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
 
     /**
      * Returns rendered HTML of a video player
-     *
-     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
-     * @param  array  $captions The movie captions
-     * @return string
+     * 
+     * @param  string $mp4      Path to .mp4 file
+     * @param  string $poster   Path to poster image file (optional)
+     * @param  string $webm     Path to .webm file (optional)
+     * @param  array  $captions  (optional)
+     * @return string Rendered player
      */
-    public function renderVideoPlayer($poster, $mp4, $webm, $captions = array())
+    public function renderVideoPlayer($mp4, $poster = null, $webm = null, $captions = array())
     {
+        if(empty($mp4)) {
+            return '';
+        }
+
         return $this->renderPlayer(
             $this->_templateVideo, 
             array(
                 'poster' => $poster,
                 'mp4'=> $mp4,
                 'webm' => $webm,
-                'captions' => $captions
+                'captions' => $captions,
+                'crossorigin' => true
             )
         );
     }
@@ -135,48 +144,44 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     /**
      * Returns rendered HTML of an audio player
      *
-     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
      * @param  string  $mp3Path     Path to mp3 file
      * @param  string  $oggPath     Path to ogg file (optional)
      * @return string
      */
     public function renderAudioPlayer($mp3Path, $oggPath = null)
     {
-        $this->_playerRequested = true;
+        if(empty($mp3Path)) {
+            return '';
+        }
 
-        // https://cdn.selz.com/plyr/1.0/logistics-96-sample.mp3
-        // https://cdn.selz.com/plyr/1.0/logistics-96-sample.ogg
-        $rendered = '<div class="player">
-                        <audio controls>
-                            <!-- Audio files -->
-                            <source src="' . $mp3Path . '" type="audio/mp3">';
-
-        $rendered .= !empty($oggPath) ? '<source src="' . $oggPath . '" type="audio/ogg">' : '';
-
-        $rendered .= '
-                            <!-- Fallback for browsers that don\'t support the <audio> element -->
-                            <a href="' . $mp3Path . '">Download</a>
-                        </audio>
-                    </div>';
-
-        return $rendered;
+        return $this->renderPlayer(
+            $this->_templateAudio, 
+            array(
+                'mp3Path'=> $mp3Path,
+                'oggPath' => $oggPath,
+                'crossorigin' => true
+            )
+        );
     }
 
     /**
      * Returns rendered HTML of a youtube player
      *
-     * @todo   Refactor. Maybe I can use the ProcessWire template rendering?
      * @param  string  $videoId     The YouTube video ID
      * @return string
      */
     public function renderYoutubePlayer($videoId)
     {
-        $this->_playerRequested = true;
-        
-        // L1h9xxCU20g
-        return '<div class="player">
-                    <div data-video-id="' . $videoId . '" data-type="youtube"></div>
-                </div>';
+        if(empty($videoId)) {
+            return '';
+        }
+
+        return $this->renderPlayer(
+            $this->_templateYoutube, 
+            array(
+                'videoId'=> $videoId
+            )
+        );
     }
 
     /**
