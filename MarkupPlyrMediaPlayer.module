@@ -28,15 +28,40 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         'automaticMode' => 1,
         'useCdn' => 1,
         // 'forceFallbackFiles' => 0,
-        'cssPath' => 'plyr.css',
-        'jsPath' => 'plyr.js',
-        'svgPath' => 'sprite.svg',
+        'cssPath' => 'resources/plyr.css',
+        'jsPath'  => 'resources/plyr.js',
+        'svgPath' => 'resources/sprite.svg',
     ); 
 
-    protected $_pathToTemplates = '/templates/';
-    protected $_templateVideo = 'video-player.phtml';
-    protected $_templateAudio = 'audio-player.phtml';
-    protected $_templateYoutube = 'youtube-player.phtml';
+    /**
+     * Path to templates
+     * @var string
+     */
+    protected $_pathToTemplates = DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR;
+
+    /**
+     * All templates and their filenames
+     * @var array
+     */
+    protected $_templates = array(
+        'playerVideo'     => 'player-video.phtml',
+        'playerAudio'     => 'player-audio.phtml',
+        'playerYoutube'   => 'player-youtube.phtml',
+        'headLink'        => 'head-link.phtml',
+        'scriptSvg'       => 'script-svg.phtml',
+        'scriptLibrary'   => 'script-library.phtml',
+        'scriptPlyrSetup' => 'script-plyr-setup.phtml'
+    );
+
+    /**
+     * Used paths to resources. Defaults are CDN
+     * @var array
+     */
+    protected $_paths = array(
+        'cssPath' => 'https://cdn.plyr.io/1.3.5/plyr.css',
+        'jsPath'  => 'https://cdn.plyr.io/1.3.5/plyr.js',
+        'svgPath' => 'https://cdn.plyr.io/1.3.5/sprite.svg'
+    );
 
     /**
      * Returns module info array
@@ -49,7 +74,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         return array(
 
             'title' => 'Plyr Media Player', 
-            'version' => '0.1.2', 
+            'version' => '0.2.0', 
             'summary' => 'This module adds the Plyr HTML5 Media Player (https://plyr.io/) to ProcessWire',
             'href' => 'https://github.com/tsdtsdtsd/PlyrMediaPlayer',
             'singular' => true, 
@@ -62,7 +87,8 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
      * Set the default config data
      *
      */
-    public function __construct() {
+    public function __construct() 
+    {
         foreach(self::$defaultConfigData as $key => $value) {
             $this->set($key, $value); 
         }
@@ -73,29 +99,59 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         if($this->page->template == 'admin') return;
 
         $config = wire('modules')->getModuleConfigData($this);
+
+        $this->_setPaths($config);
+
         if(empty($config['automaticMode'])) return;
 
         $this->addHookAfter('Page::render', $this, '_addPlyrToOutput'); 
     }
 
+    /**
+     * Sets the used paths to resources to local files, if usage of the CDN is disabled
+     * 
+     * @param array $config Current module configuration
+     */
+    protected function _setPaths($config) 
+    {
+        if(!$config['useCdn']) {
+
+            $defaultPath = wire('pages')->get('/')->httpUrl . 'site/modules/PlyrMediaPlayer/';
+
+            $this->_paths['cssPath'] = $config['cssPath'][0] == '/' ? $config['cssPath'] : $defaultPath . $config['cssPath'];
+            $this->_paths['jsPath']  = $config['jsPath'][0] == '/' ? $config['jsPath'] : $defaultPath . $config['jsPath'];
+            $this->_paths['svgPath'] = $config['svgPath'][0] == '/' ? $config['svgPath'] : $defaultPath . $config['svgPath'];
+        }
+    }
+
+    /**
+     * Renders header and footer markup that is required for Plyr's functionality
+     * 
+     * @param HookEvent $event The ProcessWire hook event
+     */
     protected function _addPlyrToOutput($event) 
     {
         if(!$this->_playerRequested) return;
 
-        // $page = $event->object; 
-        // $config = wire('modules')->getModuleConfigData($this);
-        $outputHead = $this->renderHtmlHead();
-        $outputFooter= $this->renderHtmlFooter();
+        $outputHead = $this->renderHeadLink();
+        $outputFooter = $this->renderScripts();
 
         $event->return = str_replace("</head>", $outputHead . '</head>', $event->return); 
         $event->return = str_replace("</body>", $outputFooter . '</body>', $event->return); 
     }
 
-    public function renderPlayer($template, $data = array())
+    /**
+     * Returns rendered markup of a template
+     * 
+     * @param  string $templateFile The template filename
+     * @param  array  $data         The templates view data
+     * @return string Rendered HTML
+     */
+    protected function _renderTemplate($templateFile, $data = array())
     {
-        $fullPath = dirname(__FILE__) . $this->_pathToTemplates . $template;
+        $fullPath = dirname(__FILE__) . $this->_pathToTemplates . $templateFile;
 
-        if(!$template || !file_exists($fullPath)) {
+        if(!$templateFile || !file_exists($fullPath)) {
             throw new WireException(sprintf($this->_("View template file %s not found!"), $fullPath)); 
         }
         
@@ -115,12 +171,13 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     }
 
     /**
-     * Returns rendered HTML of a video player
-     * 
+     * Returns rendered markup of a video player
+     *
+     * @todo check for crossorigin isCrossoriginUrl($url)
      * @param  string $mp4      Path to .mp4 file
-     * @param  string $poster   Path to poster image file (optional)
-     * @param  string $webm     Path to .webm file (optional)
-     * @param  array  $captions  (optional)
+     * @param  string $poster   (optional) Path to poster image file
+     * @param  string $webm     (optional) Path to .webm file
+     * @param  array  $captions (optional) Array entries should contain arrays with fields: label:string, src:string, srclang:string, default:boolean
      * @return string Rendered player
      */
     public function renderVideoPlayer($mp4, $poster = null, $webm = null, $captions = array())
@@ -129,8 +186,8 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
             return '';
         }
 
-        return $this->renderPlayer(
-            $this->_templateVideo, 
+        return $this->_renderTemplate(
+            $this->_templates['playerVideo'], 
             array(
                 'poster' => $poster,
                 'mp4'=> $mp4,
@@ -142,10 +199,11 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     }
 
     /**
-     * Returns rendered HTML of an audio player
+     * Returns rendered markup of an audio player
      *
+     * @todo check for crossorigin isCrossoriginUrl($url)
      * @param  string  $mp3Path     Path to mp3 file
-     * @param  string  $oggPath     Path to ogg file (optional)
+     * @param  string  $oggPath     (optional) Path to ogg file 
      * @return string
      */
     public function renderAudioPlayer($mp3Path, $oggPath = null)
@@ -154,8 +212,8 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
             return '';
         }
 
-        return $this->renderPlayer(
-            $this->_templateAudio, 
+        return $this->_renderTemplate(
+            $this->_templates['playerAudio'], 
             array(
                 'mp3Path'=> $mp3Path,
                 'oggPath' => $oggPath,
@@ -165,7 +223,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     }
 
     /**
-     * Returns rendered HTML of a youtube player
+     * Returns rendered markup of a youtube player
      *
      * @param  string  $videoId     The YouTube video ID
      * @return string
@@ -176,8 +234,8 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
             return '';
         }
 
-        return $this->renderPlayer(
-            $this->_templateYoutube, 
+        return $this->_renderTemplate(
+            $this->_templates['playerYoutube'], 
             array(
                 'videoId'=> $videoId
             )
@@ -185,73 +243,105 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     }
 
     /**
-     * Returns code which is required in the HTML head
+     * Returns rendered markup of the <link>-tag for CSS inclusion
      *
-     * Contains CSS stylesheet
-     * 
      * @return string
      */
-    public function renderHtmlHead()
+    public function renderHeadLink()
     {
-        $config = wire('modules')->getModuleConfigData($this);
-
-        if($config['useCdn']) {
-            $cssPath = 'https://cdn.plyr.io/1.3.5/plyr.css';
-        }
-        elseif($config['cssPath']) {
-            $cssPath = $config['cssPath'];
+        if(empty($this->_paths['cssPath'])) {
+            throw new WireException(sprintf($this->_("No path to CSS file given."))); 
         }
 
-        if(!empty($cssPath)) {
-            return '<link rel="stylesheet" href="' . $cssPath . '">';
-        }
+        return $this->_renderTemplate(
+            $this->_templates['headLink'], 
+            array(
+                'cssPath' => $this->_paths['cssPath']
+            )
+        );
     }
 
     /**
-     * Returns code which is required in the HTML Footer
+     * Returns rendered markup of all elements which are required in the HTML Footer
      *
-     * Contains AJAX request for the SVG image
-     * Contains Plyr library include
-     * Contains call to plyr.setup()
+     * - Contains AJAX request for the SVG image
+     * - Contains Plyr library include
+     * - Contains call to plyr.setup()
      * 
      * @return string
      */
-    public function renderHtmlFooter()
+    public function renderScripts()
     {
-        return '<script>
-                (function(d, p){
-                    var a = new XMLHttpRequest(),
-                        b = d.body;
-                    a.open("GET", p, true);
-                    a.send();
-                    a.onload = function(){
-                        var c = d.createElement("div");
-                        c.style.display = "none";
-                        c.innerHTML = a.responseText;
-                        b.insertBefore(c, b.childNodes[0]);
-                    }
-                })(document, "https://cdn.plyr.io/1.3.5/sprite.svg");
-                </script>
-
-                <script src="https://cdn.plyr.io/1.3.5/plyr.js"></script>
-                <script>plyr.setup();</script>';
+        return
+              $this->renderScriptSvg()
+            . $this->renderScriptLibrary()
+            . $this->renderScriptPlyrSetup();
     }
 
-    public function ___install() 
+    /**
+     * Returns 
+     *
+     * @return string
+     */
+    public function renderScriptSvg()
     {
+        if(empty($this->_paths['svgPath'])) {
+            throw new WireException(sprintf($this->_("No path to SVG sprite file given."))); 
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['scriptSvg'], 
+            array(
+                'svgPath' => $this->_paths['svgPath']
+            )
+        );
     }
 
-    public function ___uninstall() 
+    /**
+     * Returns rendered markup of javascript library inclusion
+     *
+     * @return string
+     */
+    public function renderScriptLibrary()
     {
+        if(empty($this->_paths['jsPath'])) {
+            throw new WireException(sprintf($this->_("No path to JS library file given."))); 
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['scriptLibrary'], 
+            array(
+                'jsPath' => $this->_paths['jsPath']
+            )
+        );
     }
-    
+
+    /**
+     * Returns rendered markup of the plyr.setup() call
+     *
+     * @return string
+     */
+    public function renderScriptPlyrSetup()
+    {
+        return $this->_renderTemplate($this->_templates['scriptPlyrSetup']);
+    }
+
+    /**
+     *
+     */
+    public function ___install()
+    {
+        wire('modules')->saveModuleConfigData($this, self::$defaultConfigData);
+    }
+
     /**
      * Provide fields for configuring this module
      * 
      * @param  array  $data 
      * @return InputfieldWrapper
      */
-    static public function getModuleConfigInputfields(array $data) {
+    public static function getModuleConfigInputfields(array $data) 
+    {
 
         foreach(self::$defaultConfigData as $key => $value) {
             if(!isset($data[$key])) $data[$key] = $value; 
@@ -294,27 +384,30 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
         $f->attr('name', 'cssPath');
         $f->attr('value', $data['cssPath']);
         $f->label = __('Path to CSS file');
-        $f->placeholder = 'plyr.css';
+        $f->placeholder = 'resources/plyr.css';
         $f->showIf = 'useCdn=0';
         $f->description = "Path to your CSS file, required to style the players.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
         $fieldset->add($f);
 
         $f = wire('modules')->get('InputfieldText');
         $f->attr('name', 'jsPath');
         $f->attr('value', $data['jsPath']);
-        $f->label = __('Path to the Plyr javascript library.');
-        $f->placeholder = 'plyr.js';
+        $f->label = __('Path to Plyr library');
+        $f->placeholder = 'resources/plyr.js';
         $f->showIf = 'useCdn=0';
         $f->description = "Path to the Plyr javascript library, required for the functionality.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
         $fieldset->add($f);
 
         $f = wire('modules')->get('InputfieldText');
         $f->attr('name', 'svgPath');
         $f->attr('value', $data['svgPath']);
-        $f->label = __('Path to SVG file');
-        $f->placeholder = 'sprite.svg';
+        $f->label = __('Path to SVG sprite');
+        $f->placeholder = 'resources/sprite.svg';
         $f->showIf = 'useCdn=0';
         $f->description = "Path to your SVG sprite image file, required to style the players.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
         $fieldset->add($f);
 
         // $f = wire('modules')->get('InputfieldText');
