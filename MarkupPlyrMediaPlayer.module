@@ -1,0 +1,422 @@
+<?php
+
+/**
+ * Plyr HTML5 Media Player module for ProcessWire
+ *
+ * ProcessWire 2.5.5+ 
+ * Copyright (C) 2015 by Orkan Alat 
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ * 
+ * http://www.processwire.com
+ * https://github.com/tsdtsdtsd/PlyrMediaPlayer
+ * https://plyr.io/
+ */
+class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModule 
+{
+
+    /**
+     * Keeps track if a player was requested in this loop
+     * @var boolean
+     */
+    protected $_playerRequested = false;
+
+    /**
+     * The default values of module configuration
+     * @var array
+     */
+    protected static $defaultConfigData = array(
+        'automaticMode' => 1,
+        'useCdn' => 1,
+        // 'forceFallbackFiles' => 0,
+        'cssPath' => 'resources/plyr.css',
+        'jsPath'  => 'resources/plyr.js',
+        'svgPath' => 'resources/sprite.svg',
+    ); 
+
+    /**
+     * Path to templates
+     * @var string
+     */
+    protected $_pathToTemplates = DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR;
+
+    /**
+     * All templates and their filenames
+     * @var array
+     */
+    protected $_templates = array(
+        'playerVideo'     => 'player-video.phtml',
+        'playerAudio'     => 'player-audio.phtml',
+        'playerYoutube'   => 'player-youtube.phtml',
+        'headLink'        => 'head-link.phtml',
+        'scriptSvg'       => 'script-svg.phtml',
+        'scriptLibrary'   => 'script-library.phtml',
+        'scriptPlyrSetup' => 'script-plyr-setup.phtml'
+    );
+
+    /**
+     * Used paths to resources. Defaults are CDN
+     * @var array
+     */
+    protected $_paths = array(
+        'cssPath' => 'https://cdn.plyr.io/1.3.5/plyr.css',
+        'jsPath'  => 'https://cdn.plyr.io/1.3.5/plyr.js',
+        'svgPath' => 'https://cdn.plyr.io/1.3.5/sprite.svg'
+    );
+
+    /**
+     * Returns module info array
+     *
+     * @todo  Check info posibilities (e.g. requirement definitions)
+     * @return array
+     */
+    public static function getModuleInfo() 
+    {
+        return array(
+
+            'title' => 'Plyr Media Player', 
+            'version' => '0.2.0', 
+            'summary' => 'This module adds the Plyr HTML5 Media Player (https://plyr.io/) to ProcessWire',
+            'href' => 'https://github.com/tsdtsdtsd/PlyrMediaPlayer',
+            'singular' => true, 
+            'autoload' => true,
+            'icon' => 'youtube-play'
+        );
+    }
+
+    /**
+     * Set the default config data
+     *
+     */
+    public function __construct() 
+    {
+        foreach(self::$defaultConfigData as $key => $value) {
+            $this->set($key, $value); 
+        }
+    }
+
+    public function ready() 
+    {
+        if($this->page->template == 'admin') return;
+
+        $config = wire('modules')->getModuleConfigData($this);
+
+        $this->_setPaths($config);
+
+        if(empty($config['automaticMode'])) return;
+
+        $this->addHookAfter('Page::render', $this, '_addPlyrToOutput'); 
+    }
+
+    /**
+     * Sets the used paths to resources to local files, if usage of the CDN is disabled
+     * 
+     * @param array $config Current module configuration
+     */
+    protected function _setPaths($config) 
+    {
+        if(!$config['useCdn']) {
+
+            $defaultPath = wire('pages')->get('/')->httpUrl . 'site/modules/PlyrMediaPlayer/';
+
+            $this->_paths['cssPath'] = $config['cssPath'][0] == '/' ? $config['cssPath'] : $defaultPath . $config['cssPath'];
+            $this->_paths['jsPath']  = $config['jsPath'][0] == '/' ? $config['jsPath'] : $defaultPath . $config['jsPath'];
+            $this->_paths['svgPath'] = $config['svgPath'][0] == '/' ? $config['svgPath'] : $defaultPath . $config['svgPath'];
+        }
+    }
+
+    /**
+     * Renders header and footer markup that is required for Plyr's functionality
+     * 
+     * @param HookEvent $event The ProcessWire hook event
+     */
+    protected function _addPlyrToOutput($event) 
+    {
+        if(!$this->_playerRequested) return;
+
+        $outputHead = $this->renderHeadLink();
+        $outputFooter = $this->renderScripts();
+
+        $event->return = str_replace("</head>", $outputHead . '</head>', $event->return); 
+        $event->return = str_replace("</body>", $outputFooter . '</body>', $event->return); 
+    }
+
+    /**
+     * Returns rendered markup of a template
+     * 
+     * @param  string $templateFile The template filename
+     * @param  array  $data         The templates view data
+     * @return string Rendered HTML
+     */
+    protected function _renderTemplate($templateFile, $data = array())
+    {
+        $fullPath = dirname(__FILE__) . $this->_pathToTemplates . $templateFile;
+
+        if(!$templateFile || !file_exists($fullPath)) {
+            throw new WireException(sprintf($this->_("View template file %s not found!"), $fullPath)); 
+        }
+        
+        $templateObject = new TemplateFile($fullPath);
+
+        if(!empty($data)) {
+            $templateObject->set('data', $data);
+        }
+        
+        $renderedTemplate = $templateObject->render();
+
+        if(!empty($renderedTemplate)) {
+            $this->_playerRequested = true;
+        }
+
+        return $renderedTemplate;
+    }
+
+    /**
+     * Returns rendered markup of a video player
+     *
+     * @todo check for crossorigin isCrossoriginUrl($url)
+     * @param  string $mp4      Path to .mp4 file
+     * @param  string $poster   (optional) Path to poster image file
+     * @param  string $webm     (optional) Path to .webm file
+     * @param  array  $captions (optional) Array entries should contain arrays with fields: label:string, src:string, srclang:string, default:boolean
+     * @return string Rendered player
+     */
+    public function renderVideoPlayer($mp4, $poster = null, $webm = null, $captions = array())
+    {
+        if(empty($mp4)) {
+            return '';
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['playerVideo'], 
+            array(
+                'poster' => $poster,
+                'mp4'=> $mp4,
+                'webm' => $webm,
+                'captions' => $captions,
+                'crossorigin' => true
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of an audio player
+     *
+     * @todo check for crossorigin isCrossoriginUrl($url)
+     * @param  string  $mp3Path     Path to mp3 file
+     * @param  string  $oggPath     (optional) Path to ogg file 
+     * @return string
+     */
+    public function renderAudioPlayer($mp3Path, $oggPath = null)
+    {
+        if(empty($mp3Path)) {
+            return '';
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['playerAudio'], 
+            array(
+                'mp3Path'=> $mp3Path,
+                'oggPath' => $oggPath,
+                'crossorigin' => true
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of a youtube player
+     *
+     * @param  string  $videoId     The YouTube video ID
+     * @return string
+     */
+    public function renderYoutubePlayer($videoId)
+    {
+        if(empty($videoId)) {
+            return '';
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['playerYoutube'], 
+            array(
+                'videoId'=> $videoId
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of the <link>-tag for CSS inclusion
+     *
+     * @return string
+     */
+    public function renderHeadLink()
+    {
+        if(empty($this->_paths['cssPath'])) {
+            throw new WireException(sprintf($this->_("No path to CSS file given."))); 
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['headLink'], 
+            array(
+                'cssPath' => $this->_paths['cssPath']
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of all elements which are required in the HTML Footer
+     *
+     * - Contains AJAX request for the SVG image
+     * - Contains Plyr library include
+     * - Contains call to plyr.setup()
+     * 
+     * @return string
+     */
+    public function renderScripts()
+    {
+        return
+              $this->renderScriptSvg()
+            . $this->renderScriptLibrary()
+            . $this->renderScriptPlyrSetup();
+    }
+
+    /**
+     * Returns 
+     *
+     * @return string
+     */
+    public function renderScriptSvg()
+    {
+        if(empty($this->_paths['svgPath'])) {
+            throw new WireException(sprintf($this->_("No path to SVG sprite file given."))); 
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['scriptSvg'], 
+            array(
+                'svgPath' => $this->_paths['svgPath']
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of javascript library inclusion
+     *
+     * @return string
+     */
+    public function renderScriptLibrary()
+    {
+        if(empty($this->_paths['jsPath'])) {
+            throw new WireException(sprintf($this->_("No path to JS library file given."))); 
+        }
+
+        return $this->_renderTemplate(
+            $this->_templates['scriptLibrary'], 
+            array(
+                'jsPath' => $this->_paths['jsPath']
+            )
+        );
+    }
+
+    /**
+     * Returns rendered markup of the plyr.setup() call
+     *
+     * @return string
+     */
+    public function renderScriptPlyrSetup()
+    {
+        return $this->_renderTemplate($this->_templates['scriptPlyrSetup']);
+    }
+
+    /**
+     *
+     */
+    public function ___install()
+    {
+        wire('modules')->saveModuleConfigData($this, self::$defaultConfigData);
+    }
+
+    /**
+     * Provide fields for configuring this module
+     * 
+     * @param  array  $data 
+     * @return InputfieldWrapper
+     */
+    public static function getModuleConfigInputfields(array $data) 
+    {
+
+        foreach(self::$defaultConfigData as $key => $value) {
+            if(!isset($data[$key])) $data[$key] = $value; 
+        }
+
+        $inputfields = new InputfieldWrapper();
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'automaticMode');
+        $f->attr('checked', $data['automaticMode'] ? 'checked' : '' );
+        $f->label = "Automatic Mode";
+        $f->description = __("If enabled, this option will automaticaly add all needed resources into your pages output.");
+        $f->notes = __("The resources will only be loaded, if your page renders a player.");
+        $inputfields->add($f);
+
+        $fieldset = wire('modules')->get("InputfieldFieldset");
+        $fieldset->label = "Resources";
+        $fieldset->collapsed = Inputfield::collapsedNo;
+        $inputfields->add($fieldset);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'useCdn');
+        $f->label = "Use CDN";
+        $f->description = __("Use the official Plyr CDN (Content Delivery Network) for resources?");
+        $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
+        $f->attr('checked', $data['useCdn'] ? 'checked' : '' );
+        $f->columnWidth = 50;
+        $fieldset->add($f);
+
+        // $f = wire('modules')->get("InputfieldCheckbox");
+        // $f->attr('name', 'forceFallbackFiles');
+        // $f->label = "Fallback to local files";
+        // $f->description = __("Always use the local resource files as a fallback location of the CDN.");
+        // $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
+        // $f->attr('checked', $data['forceFallbackFiles'] ? 'checked' : '' );
+        // $f->columnWidth = 50;
+        // $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'cssPath');
+        $f->attr('value', $data['cssPath']);
+        $f->label = __('Path to CSS file');
+        $f->placeholder = 'resources/plyr.css';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to your CSS file, required to style the players.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
+        $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'jsPath');
+        $f->attr('value', $data['jsPath']);
+        $f->label = __('Path to Plyr library');
+        $f->placeholder = 'resources/plyr.js';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to the Plyr javascript library, required for the functionality.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
+        $fieldset->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->attr('name', 'svgPath');
+        $f->attr('value', $data['svgPath']);
+        $f->label = __('Path to SVG sprite');
+        $f->placeholder = 'resources/sprite.svg';
+        $f->showIf = 'useCdn=0';
+        $f->description = "Path to your SVG sprite image file, required to style the players.";
+        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
+        $fieldset->add($f);
+
+        // $f = wire('modules')->get('InputfieldText');
+        // $f->attr('name', 'plyrOptions');
+        // $f->attr('value', $data['copyright']);
+        // $f->label = "Plyr Player Options";
+        // $f->description = "For now, JSON-formated string";
+        // $inputfields->add($f);
+
+        return $inputfields;
+    }
+}

@@ -1,0 +1,12 @@
+<div class="player">
+    <audio controls <?php echo $this->crossorigin ? 'crossorigin' : ''; ?>>
+        <!-- Audio files -->
+        <source src="<?php echo $this->mp3Path; ?>" type="audio/mp3">';
+        <?php if(!empty($this->oggPath)) : ?>
+            <source src="<?php echo $this->oggPath; ?>" type="video/ogg">
+        <?php endif; ?>
+
+        <!-- Fallback for browsers that don\'t support the <audio> element -->
+        <a href="<?php echo $this->mp3Path; ?>"><?php echo __('Download'); ?></a>
+    </audio>
+</div>
