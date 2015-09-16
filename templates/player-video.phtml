@@ -1,0 +1,19 @@
+<div class="player">
+    <video <?php echo $this->poster ? 'poster="' . $this->poster . '"' : ''; ?> controls <?php echo $this->crossorigin ? 'crossorigin' : ''; ?>>
+        <!-- Video files -->
+        <source src="<?php echo $this->mp4; ?>" type="video/mp4">
+        <?php if(!empty($this->webm)) : ?>
+            <source src="<?php echo $this->webm; ?>" type="video/webm">
+        <?php endif; ?>
+
+        <?php if(!empty($this->captions)) : ?>
+            <!-- Text track file -->
+            <?php foreach($this->captions as $caption) : ?>
+                <track kind="captions" label="<?php echo $caption['label']; ?>" src="<?php echo $caption['src']; ?>" srclang="<?php echo $caption['srclang']; ?>" <?php echo $caption['default'] ? 'default' : ''; ?>>
+            <?php endforeach; ?>
+        <?php endif; ?>
+
+        <!-- Fallback for browsers that don\'t support the <video> element -->
+        <a href="<?php echo $this->mp4; ?>"><?php echo __('Download'); ?></a>
+    </video>
+</div>
