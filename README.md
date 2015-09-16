@@ -1,6 +1,6 @@
 # Plyr Media Player for ProcessWire
 
-## ! This module is "work in progress" v0.2 alpha !
+## ! This module is "work in progress" v0.2 beta !
 
 This module adds the [Plyr HTML5 Media Player](https://plyr.io/) to ProcessWire.
 
