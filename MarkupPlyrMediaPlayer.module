@@ -89,9 +89,6 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
      */
     public function __construct() 
     {
-        foreach(self::$defaultConfigData as $key => $value) {
-            $this->set($key, $value); 
-        }
     }
 
     public function ready() 
@@ -116,7 +113,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     {
         if(!$config['useCdn']) {
 
-            $defaultPath = wire('pages')->get('/')->httpUrl . 'site/modules/PlyrMediaPlayer/';
+            $defaultPath = wire('pages')->get('/')->httpUrl . 'site/modules/MarkupPlyrMediaPlayer/';
 
             $this->_paths['cssPath'] = $config['cssPath'][0] == '/' ? $config['cssPath'] : $defaultPath . $config['cssPath'];
             $this->_paths['jsPath']  = $config['jsPath'][0] == '/' ? $config['jsPath'] : $defaultPath . $config['jsPath'];
@@ -332,91 +329,5 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
     public function ___install()
     {
         wire('modules')->saveModuleConfigData($this, self::$defaultConfigData);
-    }
-
-    /**
-     * Provide fields for configuring this module
-     * 
-     * @param  array  $data 
-     * @return InputfieldWrapper
-     */
-    public static function getModuleConfigInputfields(array $data) 
-    {
-
-        foreach(self::$defaultConfigData as $key => $value) {
-            if(!isset($data[$key])) $data[$key] = $value; 
-        }
-
-        $inputfields = new InputfieldWrapper();
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'automaticMode');
-        $f->attr('checked', $data['automaticMode'] ? 'checked' : '' );
-        $f->label = "Automatic Mode";
-        $f->description = __("If enabled, this option will automaticaly add all needed resources into your pages output.");
-        $f->notes = __("The resources will only be loaded, if your page renders a player.");
-        $inputfields->add($f);
-
-        $fieldset = wire('modules')->get("InputfieldFieldset");
-        $fieldset->label = "Resources";
-        $fieldset->collapsed = Inputfield::collapsedNo;
-        $inputfields->add($fieldset);
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'useCdn');
-        $f->label = "Use CDN";
-        $f->description = __("Use the official Plyr CDN (Content Delivery Network) for resources?");
-        $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
-        $f->attr('checked', $data['useCdn'] ? 'checked' : '' );
-        $f->columnWidth = 50;
-        $fieldset->add($f);
-
-        // $f = wire('modules')->get("InputfieldCheckbox");
-        // $f->attr('name', 'forceFallbackFiles');
-        // $f->label = "Fallback to local files";
-        // $f->description = __("Always use the local resource files as a fallback location of the CDN.");
-        // $f->notes = __("Only in automatic mode: The resources will only be loaded, if your page renders a player.");
-        // $f->attr('checked', $data['forceFallbackFiles'] ? 'checked' : '' );
-        // $f->columnWidth = 50;
-        // $fieldset->add($f);
-
-        $f = wire('modules')->get('InputfieldText');
-        $f->attr('name', 'cssPath');
-        $f->attr('value', $data['cssPath']);
-        $f->label = __('Path to CSS file');
-        $f->placeholder = 'resources/plyr.css';
-        $f->showIf = 'useCdn=0';
-        $f->description = "Path to your CSS file, required to style the players.";
-        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
-        $fieldset->add($f);
-
-        $f = wire('modules')->get('InputfieldText');
-        $f->attr('name', 'jsPath');
-        $f->attr('value', $data['jsPath']);
-        $f->label = __('Path to Plyr library');
-        $f->placeholder = 'resources/plyr.js';
-        $f->showIf = 'useCdn=0';
-        $f->description = "Path to the Plyr javascript library, required for the functionality.";
-        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
-        $fieldset->add($f);
-
-        $f = wire('modules')->get('InputfieldText');
-        $f->attr('name', 'svgPath');
-        $f->attr('value', $data['svgPath']);
-        $f->label = __('Path to SVG sprite');
-        $f->placeholder = 'resources/sprite.svg';
-        $f->showIf = 'useCdn=0';
-        $f->description = "Path to your SVG sprite image file, required to style the players.";
-        $f->notes = "Should be relative to 'site/modules/MarkupPlyrMediaPlayer/'.";
-        $fieldset->add($f);
-
-        // $f = wire('modules')->get('InputfieldText');
-        // $f->attr('name', 'plyrOptions');
-        // $f->attr('value', $data['copyright']);
-        // $f->label = "Plyr Player Options";
-        // $f->description = "For now, JSON-formated string";
-        // $inputfields->add($f);
-
-        return $inputfields;
     }
 }
