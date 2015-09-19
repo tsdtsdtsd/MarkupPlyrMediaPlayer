@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Config for Plyr HTML5 Media Player module for ProcessWire
+ *
+ * Copyright (C) 2015 by Orkan Alat 
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ * 
+ * http://www.processwire.com
+ * https://github.com/tsdtsdtsd/PlyrMediaPlayer
+ * https://plyr.io/
+ */
 class MarkupPlyrMediaPlayerConfig extends ModuleConfig
 {
     public function getDefaults() 
