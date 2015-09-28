@@ -37,7 +37,7 @@ class MarkupPlyrMediaPlayer extends WireData implements Module, ConfigurableModu
      * Path to templates
      * @var string
      */
-    protected $_pathToTemplates = DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR;
+    protected $_pathToTemplates = '/templates/';
 
     /**
      * All templates and their filenames
